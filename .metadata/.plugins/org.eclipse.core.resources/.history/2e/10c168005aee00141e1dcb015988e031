@@ -1,0 +1,66 @@
+#pragma once
+
+#include "hal.h"
+
+#define CC3000_USE_WAIT 1
+
+/**
+ * @brief   Driver state machine possible states.
+ */
+typedef enum {
+	CC3000_UNINIT = 0,
+	CC3000_STOP = 1,
+	CC3000_READY = 2,
+	CC3000_WRITING = 3,
+	CC3000_READING_HEADER = 4,
+	CC3000_READING_DATA = 5,
+	CC3000_ERROR = 6
+} cc3000state_t;
+
+
+/**
+ * @brief   CC3000 driver configuration structure.
+ */
+typedef struct {
+	/**
+	* @brief SPI driver associated to this MMC driver.
+	*/
+	SPIDriver * spip;
+	/**
+	* @brief SPI low speed configuration used during initialization.
+	*/
+	const SPIConfig * spicfg;
+} CC3000Config;
+
+
+/**
+ * @brief   Structure representing a CC3000 driver.
+ */
+typedef struct {
+	/**
+	* @brief   Driver state.
+	*/
+	cc3000state_t state;
+	/**
+	* @brief   Current configuration data.
+	*/
+	const CC3000Config * config;
+	/**
+	* @brief   Waiting thread.
+	*/
+	Thread * tp;
+} CC3000Driver;
+
+extern CC3000Driver CC3000D1;
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+	void cc3000ObjectInit(CC3000Driver *ccp);
+	void cc3000Start(CC3000Driver *ccp, const CC3000Config *config);
+	void cc3000Stop(CC3000Driver *ccp);
+#ifdef __cplusplus
+}
+#endif
+
+

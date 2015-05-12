@@ -1,0 +1,167 @@
+#include "ch.h"
+#include "hal.h"
+
+#include <r2p/Middleware.hpp>
+#include <r2p/msg/imu.hpp>
+#include <r2p/msg/motor.hpp>
+
+#include <led/nodes/led.hpp>
+
+#include "l3gd20h.h"
+#include "lsm303d.h"
+#include "madgwick.h"
+
+static WORKING_AREA(wa_info, 1024);
+static r2p::RTCANTransport rtcantra(RTCAND1);
+
+RTCANConfig rtcan_config = { 1000000, 100, 60 };
+
+r2p::Middleware r2p::Middleware::instance(MODULE_NAME, "BOOT_"MODULE_NAME);
+
+/*
+ * Servo control node
+ */
+msg_t servo_node(void *arg) {
+	r2p::Node node("servo");
+	r2p::Subscriber<r2p::IMUMsg, 5> imu_sub;
+	r2p::IMUMsg *imup;
+	r2p::Publisher<r2p::ServoMsg> servo_pub;
+	r2p::ServoMsg *servop;
+
+
+	(void) arg;
+	chRegSetThreadName("balance");
+
+
+	node.advertise(servo_pub, "rcout");
+	node.subscribe(imu_sub, "imu");
+
+	for (;;) {
+		while (!imu_sub.fetch(imup)) {
+			r2p::Thread::sleep(r2p::Time::ms(1));
+		}
+
+		if (servo_pub.alloc(servop)) {
+			servop->pulse[0] = 1000 + imup->roll * 10;
+			servop->pulse[1] = 1000 + imup->pitch * 10;
+			servop->pulse[2] = 1000 + imup->yaw * 10;
+			servo_pub.publish(servop);
+		}
+
+		imu_sub.release(*imup);
+	}
+	return CH_SUCCESS;
+}
+
+/*
+ * Madgwick node
+ */
+static const SPIConfig spi1cfg = { 0, 0, 0, SPI_CR1_BR_1 | SPI_CR1_CPOL | SPI_CR1_CPHA , 0};
+
+static const EXTConfig extcfg = { {
+	{ EXT_CH_MODE_DISABLED, NULL },
+	{ EXT_CH_MODE_RISING_EDGE | EXT_MODE_GPIOB, l3gd20h_drdy_callback },
+	{ EXT_CH_MODE_RISING_EDGE | EXT_MODE_GPIOA, lsm303_int1_cb },
+	{ EXT_CH_MODE_RISING_EDGE | EXT_MODE_GPIOA, lsm303_int2_cb },
+	{ EXT_CH_MODE_DISABLED, NULL },
+	{ EXT_CH_MODE_DISABLED, NULL },
+	{ EXT_CH_MODE_DISABLED, NULL },
+	{ EXT_CH_MODE_DISABLED, NULL },
+	{ EXT_CH_MODE_DISABLED, NULL },
+	{ EXT_CH_MODE_DISABLED, NULL },
+	{ EXT_CH_MODE_DISABLED, NULL },
+	{ EXT_CH_MODE_DISABLED, NULL },
+	{ EXT_CH_MODE_DISABLED, NULL },
+	{ EXT_CH_MODE_DISABLED, NULL },
+	{ EXT_CH_MODE_DISABLED, NULL }
+} };
+
+msg_t madgwick_node(void *arg) {
+	r2p::Node node("madgwick");
+	r2p::Publisher<r2p::IMUMsg> imu_pub;
+	r2p::Publisher<r2p::IMURaw9> raw_pub;
+	attitude_t attitude_data;
+	systime_t time;
+
+	(void) arg;
+	chRegSetThreadName("madgwick");
+
+	spiStart(&SPID1, &spi1cfg);
+	extStart(&EXTD1, &extcfg);
+
+	chThdSleepMilliseconds(500);
+
+	gyroRun(&SPID1, NORMALPRIO);
+	accRun(&SPID1, NORMALPRIO);
+	magRun(&SPID1, NORMALPRIO);
+
+	node.advertise(imu_pub, "imu");
+	node.advertise(raw_pub, "imu_raw");
+
+	time = chTimeNow();
+
+	for (;;) {
+		MadgwickAHRSupdateIMU((gyro_data.y / 57.143) * 3.141592 / 180.0, (-gyro_data.x / 57.143) * 3.141592 / 180.0,
+				(gyro_data.z / 57.143) * 3.141592 / 180.0, acc_data.x / 1000.0, acc_data.y / 1000.0,
+				acc_data.z / 1000.0);
+		getMadAttitude(&attitude_data);
+
+		r2p::IMUMsg *msgp;
+		if (imu_pub.alloc(msgp)) {
+			msgp->roll = ((attitude_data.roll * 57.29578)); // rads to degrees
+			msgp->pitch = ((attitude_data.pitch * 57.29578)); // rads to degrees
+			msgp->yaw = ((attitude_data.yaw * 57.29578)); // rads to degrees
+
+			imu_pub.publish(*msgp);
+		}
+
+		r2p::IMURaw9 *rawp;
+		if (raw_pub.alloc(rawp)) {
+			rawp->acc_x = acc_data.x;
+			rawp->acc_y = acc_data.y;
+			rawp->acc_z = acc_data.z;
+			rawp->gyro_x = gyro_data.y;
+			rawp->gyro_y = -gyro_data.x;
+			rawp->gyro_z = gyro_data.z;
+			rawp->mag_x = mag_data.x;
+			rawp->mag_y = mag_data.y;
+			rawp->mag_z = mag_data.z;
+
+			raw_pub.publish(*rawp);
+		}
+
+		time += MS2ST(20);
+		chThdSleepUntil(time);
+	}
+	return CH_SUCCESS;
+}
+
+/*
+ * Application entry point.
+ */
+extern "C" {
+int main(void) {
+
+	halInit();
+	chSysInit();
+
+	r2p::Middleware::instance.initialize(wa_info, sizeof(wa_info), r2p::Thread::LOWEST);
+	rtcantra.initialize(rtcan_config);
+	r2p::Middleware::instance.start();
+
+	r2p::ledsub_conf ledsub_conf = { "led" };
+	r2p::Thread::create_heap(NULL, THD_WA_SIZE(512), NORMALPRIO, r2p::ledsub_node, &ledsub_conf);
+
+	r2p::Thread::create_heap(NULL, THD_WA_SIZE(2048), NORMALPRIO + 3, madgwick_node, NULL);
+	r2p::Thread::sleep(r2p::Time::ms(2000));
+
+	r2p::Thread::create_heap(NULL, THD_WA_SIZE(2048), NORMALPRIO + 2, servo_node, NULL);
+
+	for (;;) {
+		r2p::Thread::sleep(r2p::Time::ms(500));
+	}
+
+	return CH_SUCCESS;
+}
+}
+

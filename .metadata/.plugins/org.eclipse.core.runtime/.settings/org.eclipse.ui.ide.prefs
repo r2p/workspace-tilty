@@ -1,0 +1,8 @@
+CLOSE_UNRELATED_PROJECTS=true
+IMPORT_FILES_AND_FOLDERS_MODE=prompt
+IMPORT_FILES_AND_FOLDERS_VIRTUAL_FOLDER_MODE=prompt
+PROBLEMS_FILTERS_MIGRATE=true
+eclipse.preferences.version=1
+platformState=1419346256550
+quickStart=false
+tipsAndTricks=true

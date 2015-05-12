@@ -1,0 +1,13 @@
+MODULE = IMU_module
+MODULE_NAME = imu
+
+PACKAGES = led
+
+PRJ_CSRC = 
+
+PRJ_CPPSRC = main.cpp
+
+ULIBS += -lm
+
+include $(R2P_ROOT)/core/r2p.mk
+

@@ -1,0 +1,205 @@
+#include "ch.h"
+#include "hal.h"
+
+#include "cc3000.h"
+#include "hci.h"
+
+
+extern unsigned char wlan_rx_buffer[];
+extern unsigned char wlan_tx_buffer[];
+
+CC3000Driver CC3000D1;
+
+static void irq_cb(EXTDriver *extp, expchannel_t channel);
+static void spi_cb(SPIDriver *spip);
+
+static const SPIConfig spi_cfg = {
+    .end_cb = spi_cb,
+    .ssport = CC3000_CS_PORT,
+    .sspad = CC3000_CS_PAD,
+    .cr1 = SPI_CR1_CPHA,
+	.cr2 = 0,
+};
+
+static const EXTConfig exti_cfg = {
+    .channels = {
+        [CC3000_IRQ_PAD] = {
+            .mode = EXT_CH_MODE_FALLING_EDGE | CC3000_IRQ_MODE,
+            .cb = irq_cb
+        },
+    },
+};
+
+
+static void spi_cb(SPIDriver *spip) {
+	uint8_t type;
+	uint16_t len;
+
+	chSysLockFromIsr();
+
+	switch (CC3000D1.state) {
+	case CC3000_READING_HEADER:
+		type = wlan_rx_buffer[SPI_HEADER_SIZE + HCI_PACKET_TYPE_OFFSET];
+
+		if (type == HCI_TYPE_DATA) {
+			//len = *((uint16_t *)wlan_rx_buffer[SPI_HEADER_SIZE + HCI_DATA_LENGTH_OFFSET]);
+			len = wlan_rx_buffer[SPI_HEADER_SIZE + HCI_DATA_LENGTH_OFFSET];
+		} else if (type == HCI_TYPE_EVNT) {
+			//len = *((uint8_t *)wlan_rx_buffer[SPI_HEADER_SIZE + HCI_DATA_LENGTH_OFFSET]);
+			len = wlan_rx_buffer[SPI_HEADER_SIZE + HCI_DATA_LENGTH_OFFSET];
+			len--;
+		}
+
+		// padding
+		if (!((len + 5) & 0x01)) {
+	    	len++;
+	    }
+
+		if (len > 0) {
+			CC3000D1.state = CC3000_READING_DATA;
+			spiStartReceiveI(&CC3000_SPI_DRIVER, len, &wlan_rx_buffer[SPI_HEADER_SIZE + 5]);
+		} else {
+			CC3000D1.state = CC3000_READY;
+			spiUnselectI(&CC3000_SPI_DRIVER);
+			// TODO: trigger rx function (and disable IRQ channel?)
+		}
+
+		break;
+
+	case CC3000_READING_DATA:
+		CC3000D1.state = CC3000_READY;
+		spiUnselectI(&CC3000_SPI_DRIVER);
+		// TODO: trigger rx function (and disable IRQ channel?)
+		break;
+
+	case CC3000_WRITING:
+		spiUnselectI(&CC3000_SPI_DRIVER);
+		CC3000D1.state = CC3000_READY;
+		break;
+
+	case CC3000_READY:
+		// first write
+		break;
+
+	default:
+		while(1);
+		break;
+	}
+
+	chSysUnlockFromIsr();
+}
+
+
+static void irq_cb(EXTDriver *extp, expchannel_t channel) {
+
+	chSysLockFromIsr();
+
+	switch (CC3000D1.state) {
+	case CC3000_STOP:
+		CC3000D1.state = CC3000_READY;
+		break;
+
+	case CC3000_READY:
+		CC3000D1.state = CC3000_READING_HEADER;
+		spiSelectI(&CC3000_SPI_DRIVER);
+		spiStartReceiveI(&CC3000_SPI_DRIVER, SPI_HEADER_SIZE + 5, wlan_rx_buffer);
+		break;
+
+	case CC3000_WRITING:
+		CC3000D1.state = CC3000_READY;
+		if (CC3000D1.tp) {
+			CC3000D1.tp->p_u.rdymsg = (msg_t)123;
+			chSchReadyI(CC3000D1.tp);
+			CC3000D1.tp = NULL;
+		}
+		break;
+
+	default:
+		while(1);
+	}
+
+	chSysUnlockFromIsr();
+}
+
+
+static void cc3000_enable(unsigned char val) {
+
+	palWritePad(CC3000_EN_PORT, CC3000_EN_PAD, val);
+}
+
+static int32_t cc3000_irq_read(void) {
+
+	return palReadPad(CC3000_IRQ_PORT, CC3000_IRQ_PAD);
+}
+
+static void cc3000_irq_enable(void) {
+
+	extChannelEnable(&CC3000_EXTI_DRIVER, CC3000_IRQ_PAD);
+}
+
+static void cc3000_irq_disable(void) {
+
+	extChannelDisable(&CC3000_EXTI_DRIVER, CC3000_IRQ_PAD);
+}
+
+
+/**
+ * @brief   Initializes the standard part of a @p ADCDriver structure.
+ *
+ * @param[out] adcp     pointer to the @p ADCDriver object
+ *
+ * @init
+ */
+void cc3000ObjectInit(CC3000Driver *ccp) {
+
+	ccp->state    = CC3000_STOP;
+	ccp->config   = NULL;
+#if CC3000_USE_WAIT
+//	ccp->thread   = NULL;
+#endif /* CC3000_USE_WAIT */
+#if CC3000_USE_MUTUAL_EXCLUSION
+#if CH_USE_MUTEXES
+  chMtxInit(&ccp->mutex);
+#else
+  chSemInit(&ccp->semaphore, 1);
+#endif
+#endif /* CC3000_USE_MUTUAL_EXCLUSION */
+}
+
+/**
+ * @brief   Configures and activates the ADC peripheral.
+ *
+ * @param[in] ccp       pointer to the @p CC3000Driver object
+ * @param[in] config    pointer to the @p CC3000Config object.
+ *                      @p NULL for default configuration.
+ *
+ * @api
+ */
+void cc3000Start(CC3000Driver *ccp, const CC3000Config *config) {
+
+	chDbgCheck(ccp != NULL, "cc3000Start");
+	chDbgAssert((ccp->state == CC3000_STOP) || (ccp->state == CC3000_READY),
+			"cc3000Start(), #1", "invalid state");
+
+	chSysLock();
+	ccp->config = config;
+	//cc3000_lld_start(ccp);
+	CC3000D1.state = CC3000_STOP;
+	chSysUnlock();
+
+	if (ccp->config->spicfg) {
+		spiStart(ccp->config->spip, ccp->config->spicfg);
+	} else {
+		spiStart(ccp->config->spip, &spi_cfg);
+	}
+
+	extStart(&CC3000_EXTI_DRIVER, &exti_cfg);
+	extChannelEnable(&CC3000_EXTI_DRIVER, CC3000_IRQ_PAD);
+
+	wlan_init( NULL, NULL, NULL, NULL, cc3000_irq_read, cc3000_irq_enable, cc3000_irq_disable, cc3000_enable);
+	wlan_start(0);
+}
+
+void SpiOpen(spirx_cb pfRxHandler) {
+
+}

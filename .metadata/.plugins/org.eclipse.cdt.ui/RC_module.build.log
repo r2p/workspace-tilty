@@ -1,0 +1,6 @@
+16:40:46 **** Incremental Build of configuration Default for project RC_module ****
+make all 
+make: Nothing to be done for `all'.
+
+16:40:46 Build Finished (took 217ms)
+

@@ -1,0 +1,133 @@
+16:44:32 **** Incremental Build of configuration Hardware test for project uDC_module ****
+make TEST=hardware_test all 
+Compiling crt0.c
+Compiling vectors.c
+Compiling chcore.c
+Compiling chcore_v7m.c
+Compiling nvic.c
+Compiling chsys.c
+Compiling chdebug.c
+Compiling chlists.c
+Compiling chvt.c
+Compiling chschd.c
+Compiling chthreads.c
+Compiling chdynamic.c
+Compiling chregistry.c
+Compiling chsem.c
+Compiling chmtx.c
+Compiling chcond.c
+Compiling chevents.c
+Compiling chmsg.c
+Compiling chmboxes.c
+Compiling chqueues.c
+Compiling chmemcore.c
+Compiling chheap.c
+Compiling chmempools.c
+Compiling hal.c
+Compiling adc.c
+Compiling can.c
+Compiling ext.c
+Compiling gpt.c
+Compiling i2c.c
+Compiling icu.c
+Compiling mac.c
+Compiling mmc_spi.c
+Compiling mmcsd.c
+Compiling pal.c
+Compiling rtc.c
+Compiling pwm.c
+Compiling sdc.c
+Compiling serial.c
+Compiling serial_usb.c
+Compiling spi.c
+Compiling tm.c
+Compiling uart.c
+Compiling usb.c
+Compiling stm32_dma.c
+Compiling hal_lld.c
+Compiling adc_lld.c
+Compiling ext_lld_isr.c
+Compiling can_lld.c
+Compiling ext_lld.c
+Compiling i2c_lld.c
+Compiling pal_lld.c
+Compiling rtc_lld.c
+Compiling gpt_lld.c
+Compiling spi_lld.c
+Compiling icu_lld.c
+Compiling pwm_lld.c
+Compiling serial_lld.c
+Compiling uart_lld.c
+Compiling usb_lld.c
+Compiling evtimer.c
+Compiling syscalls.c
+Compiling rtcan.c
+Compiling msgqueue.c
+Compiling hrt.c
+Compiling srt.c
+Compiling rtcan_lld_can.c
+Compiling rtcan_lld_tim.c
+Compiling board.c
+Compiling stubs.c
+Compiling qei.c
+Compiling qei_lld.c
+Compiling ArrayQueue_.cpp
+Compiling SimplePool_.cpp
+stubs.c:5:6: warning: function declaration isn't a prototype [-Wstrict-prototypes]
+ void __cxa_pure_virtual() {
+      ^
+stubs.c:22:5: warning: function declaration isn't a prototype [-Wstrict-prototypes]
+Compiling StaticQueue_.cpp
+ int _getpid() {
+     ^
+Compiling StaticList_.cpp
+Compiling BasePublisher.cpp
+Compiling BaseSubscriber.cpp
+Compiling BaseSubscriberQueue.cpp
+Compiling BootMsg.cpp
+Compiling Checksummer.cpp
+Compiling LocalPublisher.cpp
+Compiling LocalSubscriber.cpp
+Compiling MessagePtrQueue.cpp
+Compiling Message.cpp
+Compiling Middleware.cpp
+Compiling Node.cpp
+Compiling RemotePublisher.cpp
+Compiling RemoteSubscriber.cpp
+Compiling Time.cpp
+Compiling Topic.cpp
+Compiling TimestampedMsgPtrQueue.cpp
+Compiling Transport.cpp
+Compiling Utils.cpp
+Compiling RTCANTransport.cpp
+/opt/r2p/core/Middleware/src/Middleware.cpp:24:35: warning: unused parameter 'boot_stackp' [-Wunused-parameter]
+                             void *boot_stackp, size_t boot_stacklen,
+                                   ^
+/opt/r2p/core/Middleware/src/Middleware.cpp:24:55: warning: unused parameter 'boot_stacklen' [-Wunused-parameter]
+                             void *boot_stackp, size_t boot_stacklen,
+                                                       ^
+/opt/r2p/core/Middleware/src/Middleware.cpp:25:46: warning: unused parameter 'boot_priority' [-Wunused-parameter]
+                             Thread::Priority boot_priority) {
+                                              ^
+Compiling RTCANPublisher.cpp
+Compiling RTCANSubscriber.cpp
+Compiling Middleware_.cpp
+Compiling Time_.cpp
+Compiling chnew.cpp
+Compiling led.cpp
+Compiling hardware_test.cpp
+test/hardware_test.cpp:59:36: warning: missing initializer for member 'PWMConfig::dier' [-Wmissing-field-initializers]
+  PWM_OUTPUT_DISABLED, NULL } }, 0, };
+                                    ^
+Linking build/fw.elf
+Creating build/fw.hex
+Creating build/fw.bin
+Creating build/fw.dmp
+
+   text	   data	    bss	    dec	    hex	filename
+  65012	   2644	   6564	  74220	  121ec	build/fw.elf
+
+Done
+
+16:44:34 Build Finished (took 1s.457ms)
+

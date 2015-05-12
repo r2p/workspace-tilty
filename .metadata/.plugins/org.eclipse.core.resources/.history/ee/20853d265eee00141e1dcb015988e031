@@ -1,0 +1,157 @@
+#include <stdbool.h>
+
+#include "ch.h"
+#include "hal.h"
+
+#include "cc3000_common.h"
+#include "hci.h"
+#include "wlan.h"
+
+#if !HAL_USE_SPI
+#error "SPI driver must be activated"
+#endif
+
+#if !defined(CC3000_SPI_DRIVER)
+#error "CC3000 driver activated but no SPI peripheral assigned"
+#endif
+
+#define CC3000_SPI_WRITE			0x01
+#define CC3000_SPI_READ				0x03
+
+/*
+ * CC3000 states.
+ */
+typedef enum
+{
+  CC3000_POWERUP = 0,
+  CC3000_INITIALIZED,
+  CC3000_IDLE,
+  CC3000_FIRST_WRITE,
+  CC3000_WRITE_WAIT_IRQ,
+  CC3000_WRITE_PROCEED,
+  CC3000_WRITE_DONE,
+  CC3000_READ_IRQ,
+  CC3000_READ_PROCEED,
+  CC3000_READ_READY,
+  CC3000_READ_PREP_IRQ
+} eCC3000States;
+
+/*
+ * CC3000 callbacks.
+ */
+typedef void (*gcSpiHandleRx)(void *p);
+typedef void (*gcSpiHandleTx)(void);
+
+typedef void (*spirx_cb)(void *p);
+
+/*
+ * CC3000 SPI transaction informations.
+ */
+typedef struct
+{
+	gcSpiHandleRx SPIRxHandler;
+	unsigned short usTxPacketLength;
+	unsigned short usRxPacketLength;
+	volatile eCC3000States ulSpiState;
+	unsigned char *pTxPacket;
+	unsigned char *pRxPacket;
+	volatile int abort;
+} tSpiInformation;
+
+tSpiInformation sSpiInformation;
+
+
+unsigned char wlan_tx_buffer[CC3000_TX_BUFFER_SIZE];
+unsigned char wlan_rx_buffer[CC3000_RX_BUFFER_SIZE];
+
+
+
+static void cc3000_enable(unsigned char val) {
+
+	palWritePad(CC3000_EN_PORT, CC3000_EN_PAD, val);
+}
+
+static int32_t cc3000_irq_read(void) {
+
+	return palReadPad(CC3000_IRQ_PORT, CC3000_IRQ_PAD);
+}
+
+static void cc3000_irq_enable(void) {
+
+	extChannelEnable(&CC3000_EXTI_DRIVER, CC3000_IRQ_PAD);
+}
+
+static void cc3000_irq_disable(void) {
+
+	extChannelDisable(&CC3000_EXTI_DRIVER, CC3000_IRQ_PAD);
+}
+
+
+void SpiOpen(spirx_cb pfRxHandler) {
+	sSpiInformation.ulSpiState = CC3000_POWERUP;
+	sSpiInformation.SPIRxHandler = pfRxHandler;
+	sSpiInformation.pRxPacket = NULL;
+	sSpiInformation.usRxPacketLength = 0;
+	sSpiInformation.pTxPacket = NULL;
+	sSpiInformation.usTxPacketLength = 0;
+}
+
+
+long SpiWrite(unsigned char *buf, unsigned short len) {
+	static bool first_write = true;
+
+    while (CC3000D1.state != CC3000_READY) {
+    	chThdSleepMilliseconds(1);
+    }
+
+	// padding
+	if (!(len & 0x01)) {
+    	len++;
+    }
+
+	buf[0] = CC3000_SPI_WRITE;
+	buf[1] = len >> 8; // HI
+	buf[2] = len; // LOW
+	buf[3] = 0;
+	buf[4] = 0;
+
+	len += sizeof(SPI_HEADER_SIZE);
+
+	if (first_write) {
+		first_write = false;
+		spiSelect(&CC3000_SPI_DRIVER);
+		halPolledDelay(US2ST(50));
+	    spiStartSend(&CC3000_SPI_DRIVER, 4, buf);
+	    halPolledDelay(US2ST(50));
+		CC3000D1.state = CC3000_WRITING;
+	    spiStartSend(&CC3000_SPI_DRIVER, len - 4, buf + 4);
+	} else {
+		chSysLock();
+		CC3000D1.state = CC3000_WRITING;
+		spiSelectI(&CC3000_SPI_DRIVER);
+		// Wait for IRQ
+		CC3000D1.tp = chThdSelf();
+		chSchGoSleepS(THD_STATE_SUSPENDED);
+
+		spiStartSendI(&CC3000_SPI_DRIVER, len, buf);
+
+		chSysUnlock();
+
+	    while (CC3000D1.state == CC3000_WRITING) {
+	    	chThdSleepMilliseconds(1);
+	    }
+	}
+}
+
+
+void SpiClose(void) {
+
+	spiStop(&CC3000_SPI_DRIVER);
+	extChannelDisnable(&CC3000_EXTI_DRIVER, CC3000_IRQ_PAD);
+	extStop(&CC3000_EXTI_DRIVER);
+}
+
+
+void  SpiResumeSpi(void) {
+
+}
