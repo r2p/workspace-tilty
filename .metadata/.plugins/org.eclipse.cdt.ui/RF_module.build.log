@@ -1,9 +1,0 @@
-19:10:11 **** Clean-only build of configuration OpenLRS test for project RF_module ****
-make TEST=openlrs_test clean 
-Cleaning
-rm -fR .dep build
-
-Done
-
-19:10:11 Build Finished (took 62ms)
-

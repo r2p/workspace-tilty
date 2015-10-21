@@ -1,4 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<session version="1.0">
-<refactoring comment="Delete resource &apos;uDC_ntek&apos;" deleteContents="false" description="Delete resource &apos;uDC_ntek&apos;" element1="/uDC_ntek" flags="7" id="org.eclipse.ltk.core.refactoring.delete.resources" resources="1" stamp="1430830743158"/>
-</session>

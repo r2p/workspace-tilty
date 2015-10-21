@@ -1,9 +1,0 @@
-18:02:44 **** Clean-only build of configuration Default for project USB ****
-make clean 
-Cleaning
-rm -fR .dep build
-
-Done
-
-18:02:44 Build Finished (took 66ms)
-

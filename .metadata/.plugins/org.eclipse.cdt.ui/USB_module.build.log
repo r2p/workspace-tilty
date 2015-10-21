@@ -1,9 +1,0 @@
-19:10:11 **** Clean-only build of configuration Hardware test console for project USB_module ****
-make TEST=hardware_test_console clean 
-Cleaning
-rm -fR .dep build
-
-Done
-
-19:10:11 Build Finished (took 207ms)
-

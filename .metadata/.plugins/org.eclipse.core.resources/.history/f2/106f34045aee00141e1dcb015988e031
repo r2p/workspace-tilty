@@ -1,6 +1,0 @@
-CC3000CSRC = ext/cc3000_bindings/cc3000_spi.c \
-	ext/cc3000_bindings/cc3000.c \
-	$(wildcard ext/CC3000HostDriver/*.c)
-       
-CC3000INC = ext/cc3000_bindings/ \
-	ext/CC3000HostDriver

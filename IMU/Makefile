@@ -11,5 +11,7 @@ PRJ_CPPSRC = main.cpp
 
 ULIBS += -lm
 
+UDEFS += -DMODULE_ID=2
+
 include $(R2P_ROOT)/core/r2p.mk
 

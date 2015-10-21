@@ -1,9 +1,0 @@
-19:10:10 **** Clean-only build of configuration Default for project IMU_quadrotor ****
-make clean 
-Cleaning
-rm -fR .dep build
-
-Done
-
-19:10:11 Build Finished (took 56ms)
-

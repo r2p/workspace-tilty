@@ -12,5 +12,7 @@ PRJ_CPPSRC = ros_lib/duration.cpp \
 	
 PRJ_INC = ros_lib/
 
+UDEFS += -DMODULE_ID=1
+
 include $(R2P_ROOT)/core/r2p.mk
 

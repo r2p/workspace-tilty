@@ -8,5 +8,7 @@ PRJ_CPPSRC = \
 	nodes/encoder_node.cpp \
 	main.cpp
 
+UDEFS += -DMODULE_ID=0
+
 include $(R2P_ROOT)/core/r2p.mk
 

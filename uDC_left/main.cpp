@@ -8,10 +8,10 @@
 #include "nodes/pwm_node.hpp"
 
 #define _TICKS 48.0f
-#define _RATIO 19.0f
+#define _RATIO 30.0f
 #define _PI 3.14159265359f
 
-#define R2T ((1 / (2 * _PI)) * (_TICKS * _RATIO))
+#define T2R (((2 * _PI)) / (_TICKS * _RATIO))
 
 static WORKING_AREA(wa_info, 1024);
 static r2p::RTCANTransport rtcantra(RTCAND1);
@@ -39,7 +39,7 @@ int main(void) {
 	pwm_node_conf pwm_conf = {"pwm_node", "pwm", 0};
 	r2p::Thread::create_heap(NULL, THD_WA_SIZE(2048), NORMALPRIO + 1, pwm_node, &pwm_conf);
 	
-	encoder_node_conf encoder_conf = {"encoder_node", "encoder0", R2T};
+	encoder_node_conf encoder_conf = {"encoder_node", "encoder0", T2R};
 	r2p::Thread::create_heap(NULL, THD_WA_SIZE(2048), NORMALPRIO + 2, encoder_node, &encoder_conf);
 
 	for (;;) {

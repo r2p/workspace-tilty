@@ -44,6 +44,8 @@ r2p::Middleware r2p::Middleware::instance(R2P_MODULE_NAME, "BOOT_"R2P_MODULE_NAM
 // Robot parameters
 #define _L        0.220f     // Wheel distance [m]
 #define _R        (0.155f / 2) // Wheel radius [m]
+//#define OFFSET 0.5 // tilty
+#define OFFSET -9 // pinguiglio
 
 
 /*
@@ -57,13 +59,13 @@ float right_speed = 0;
 float left_speed = 0;
 
 bool enc0_callback(const r2p::EncoderMsg &msg) {
-	right_speed = -msg.delta * _R * 20; // ->m/s @20hz
+	left_speed = msg.delta * _R * 20; // ->m/s @20hz
 
 	return true;
 }
 
 bool enc1_callback(const r2p::EncoderMsg &msg) {
-	left_speed = msg.delta * _R * 20; // ->m/s @20hz
+	right_speed = -msg.delta * _R * 20; // ->m/s @20hz
 
 	return true;
 }
@@ -90,7 +92,8 @@ msg_t velocity_node(void *arg) {
 
 	node.advertise(odometry_pub, "odometry");
 
-	vel_pid.config(2.0, 0.0, -0.1, 0.05, -10.0, 10.0);
+//	vel_pid.config(2.0, 0.0, -0.1, 0.05, -10.0, 10.0); // tilty
+	vel_pid.config(3.0, 0.0, -0.1, 0.05, -10.0, 10.0); // pinguiglio
 	vel_pid.set(0);
 
 	for (;;) {
@@ -101,7 +104,7 @@ msg_t velocity_node(void *arg) {
 
 		v = (left_speed + right_speed) / 2;
 		w = (right_speed - left_speed) / _L;
-		angle_setpoint = vel_pid.update(v); // 20hz
+		angle_setpoint = vel_pid.update(v);
 
 		r2p::Velocity3Msg *msgp;
 		if (odometry_pub.alloc(msgp)) {
@@ -152,7 +155,8 @@ msg_t balance_node(void *arg) {
 	node.subscribe(cfg_sub, "balcfg");
 
 
-	balance_pid.config(250, 0.2, 0.02, 0.02, -4000, 4000);
+//	balance_pid.config(250, 0.2, 0.02, 0.02, -4000, 4000); // tilty
+	balance_pid.config(450, 0.2, 0.02, 0.02, -4000, 4000); // pinguiglio
 	balance_pid.set(angle_setpoint);
 
 	for (;;) {
@@ -167,7 +171,8 @@ msg_t balance_node(void *arg) {
 			cfg_sub.release(*cfgp);
 		}
 
-		pwm = balance_pid.update(msgp->pitch + 0.7); // tilty offset
+		pwm = -balance_pid.update(msgp->pitch + (OFFSET));
+
 		imu_sub.release(*msgp);
 
 		if (pwm_pub.alloc(pwmp)) {
